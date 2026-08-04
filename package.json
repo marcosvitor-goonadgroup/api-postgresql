@@ -1,5 +1,5 @@
 {
-  "name": "api-rec-n-play",
+  "name": "api-postgresql",
   "version": "1.0.0",
   "description": "API RESTful com Node.js, Express e PostgreSQL",
   "main": "server.js",

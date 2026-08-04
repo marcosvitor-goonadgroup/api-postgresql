@@ -56,6 +56,17 @@ const poolSouthSummit = new Pool({
   connectionTimeoutMillis: 2000, // Tempo de espera para estabelecer conexão
 });
 
+// Configuração do Pool de Conexões - Mulheres
+const poolMulheres = new Pool({
+  connectionString: process.env.DATABASE_URL_MULHERES,
+  ssl: {
+    rejectUnauthorized: false // Necessário para conexões Railway
+  },
+  max: 20, // Número máximo de clientes no pool
+  idleTimeoutMillis: 30000, // Tempo de espera antes de fechar cliente inativo
+  connectionTimeoutMillis: 2000, // Tempo de espera para estabelecer conexão
+});
+
 // Event listeners para monitoramento - Rec'n'Play
 poolRecNPlay.on('connect', () => {
   console.log('✅ [Rec\'n\'Play] Nova conexão estabelecida com o banco de dados');
@@ -101,6 +112,15 @@ poolSouthSummit.on('error', (err) => {
   console.error('❌ [South Summit] Erro inesperado no pool de conexões:', err);
 });
 
+// Event listeners para monitoramento - Mulheres
+poolMulheres.on('connect', () => {
+  console.log('✅ [Mulheres] Nova conexão estabelecida com o banco de dados');
+});
+
+poolMulheres.on('error', (err) => {
+  console.error('❌ [Mulheres] Erro inesperado no pool de conexões:', err);
+});
+
 // Função para obter o pool correto baseado no evento
 const getPool = (event = 'recnplay') => {
   if (event === 'global') {
@@ -111,6 +131,8 @@ const getPool = (event = 'recnplay') => {
     return poolSEST;
   } else if (event === 'southsummit') {
     return poolSouthSummit;
+  } else if (event === 'mulheres') {
+    return poolMulheres;
   }
   return poolRecNPlay;
 };
@@ -122,7 +144,8 @@ const testConnection = async () => {
     global: false,
     cop: false,
     sest: false,
-    southsummit: false
+    southsummit: false,
+    mulheres: false
   };
 
   try {
@@ -170,6 +193,15 @@ const testConnection = async () => {
     console.error('❌ [South Summit] Erro ao conectar com o banco de dados:', error.message);
   }
 
+  try {
+    const clientMulheres = await poolMulheres.connect();
+    console.log('🔌 [Mulheres] Conexão com PostgreSQL estabelecida com sucesso!');
+    clientMulheres.release();
+    results.mulheres = true;
+  } catch (error) {
+    console.error('❌ [Mulheres] Erro ao conectar com o banco de dados:', error.message);
+  }
+
   return results;
 };
 
@@ -179,6 +211,7 @@ module.exports = {
   poolCOP,
   poolSEST,
   poolSouthSummit,
+  poolMulheres,
   getPool,
   testConnection,
   // Mantém retrocompatibilidade
