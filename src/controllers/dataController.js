@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { isTableBlocked, sanitizeRows } = require('../config/eventRestrictions');
 
 /**
  * Controller para gerenciar operações de dados
@@ -22,12 +23,13 @@ const dataController = {
       `;
 
       const result = await dbPool.query(query);
-      
+      const tables = result.rows.filter((t) => !isTableBlocked(req.event, t.table_name));
+
       res.status(200).json({
         success: true,
         event: req.eventName || "Rec'n'Play",
-        count: result.rows.length,
-        data: result.rows
+        count: tables.length,
+        data: tables
       });
     } catch (error) {
       console.error('Erro ao buscar tabelas:', error);
@@ -59,6 +61,14 @@ const dataController = {
         });
       }
 
+      // Tabelas restritas para o evento (ver config/eventRestrictions.js)
+      if (isTableBlocked(req.event, tableName)) {
+        return res.status(404).json({
+          success: false,
+          message: `Tabela não encontrada: ${tableName}`
+        });
+      }
+
       // Busca os dados com paginação
       // Nome entre aspas duplas para preservar maiúsculas (tabelas criadas via Prisma)
       const dataQuery = `SELECT * FROM "${tableName}" LIMIT $1 OFFSET $2`;
@@ -76,7 +86,7 @@ const dataController = {
         count: dataResult.rows.length,
         limit: parseInt(limit),
         offset: parseInt(offset),
-        data: dataResult.rows
+        data: sanitizeRows(req.event, dataResult.rows)
       });
     } catch (error) {
       console.error('Erro ao buscar dados da tabela:', error);
@@ -106,17 +116,18 @@ const dataController = {
       `;
 
       const tablesResult = await dbPool.query(tablesQuery);
+      const tables = tablesResult.rows.filter((t) => !isTableBlocked(req.event, t.table_name));
       const allData = {};
 
       // Para cada tabela, busca todos os dados
-      for (const table of tablesResult.rows) {
+      for (const table of tables) {
         const tableName = table.table_name;
         try {
           const dataQuery = `SELECT * FROM "${tableName}"`;
           const dataResult = await dbPool.query(dataQuery);
           allData[tableName] = {
             count: dataResult.rows.length,
-            data: dataResult.rows
+            data: sanitizeRows(req.event, dataResult.rows)
           };
         } catch (error) {
           console.error(`Erro ao buscar dados da tabela ${tableName}:`, error);
@@ -129,7 +140,7 @@ const dataController = {
       res.status(200).json({
         success: true,
         event: req.eventName || "Rec'n'Play",
-        totalTables: tablesResult.rows.length,
+        totalTables: tables.length,
         tables: allData
       });
     } catch (error) {

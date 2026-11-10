@@ -67,6 +67,17 @@ const poolMulheres = new Pool({
   connectionTimeoutMillis: 2000, // Tempo de espera para estabelecer conexão
 });
 
+// Configuração do Pool de Conexões - Missões
+const poolMissoes = new Pool({
+  connectionString: process.env.DATABASE_URL_MISSOES,
+  ssl: {
+    rejectUnauthorized: false // Necessário para conexões Railway
+  },
+  max: 20, // Número máximo de clientes no pool
+  idleTimeoutMillis: 30000, // Tempo de espera antes de fechar cliente inativo
+  connectionTimeoutMillis: 2000, // Tempo de espera para estabelecer conexão
+});
+
 // Event listeners para monitoramento - Rec'n'Play
 poolRecNPlay.on('connect', () => {
   console.log('✅ [Rec\'n\'Play] Nova conexão estabelecida com o banco de dados');
@@ -121,6 +132,15 @@ poolMulheres.on('error', (err) => {
   console.error('❌ [Mulheres] Erro inesperado no pool de conexões:', err);
 });
 
+// Event listeners para monitoramento - Missões
+poolMissoes.on('connect', () => {
+  console.log('✅ [Missões] Nova conexão estabelecida com o banco de dados');
+});
+
+poolMissoes.on('error', (err) => {
+  console.error('❌ [Missões] Erro inesperado no pool de conexões:', err);
+});
+
 // Função para obter o pool correto baseado no evento
 const getPool = (event = 'recnplay') => {
   if (event === 'global') {
@@ -133,6 +153,8 @@ const getPool = (event = 'recnplay') => {
     return poolSouthSummit;
   } else if (event === 'mulheres') {
     return poolMulheres;
+  } else if (event === 'missoes') {
+    return poolMissoes;
   }
   return poolRecNPlay;
 };
@@ -145,7 +167,8 @@ const testConnection = async () => {
     cop: false,
     sest: false,
     southsummit: false,
-    mulheres: false
+    mulheres: false,
+    missoes: false
   };
 
   try {
@@ -202,6 +225,15 @@ const testConnection = async () => {
     console.error('❌ [Mulheres] Erro ao conectar com o banco de dados:', error.message);
   }
 
+  try {
+    const clientMissoes = await poolMissoes.connect();
+    console.log('🔌 [Missões] Conexão com PostgreSQL estabelecida com sucesso!');
+    clientMissoes.release();
+    results.missoes = true;
+  } catch (error) {
+    console.error('❌ [Missões] Erro ao conectar com o banco de dados:', error.message);
+  }
+
   return results;
 };
 
@@ -212,6 +244,7 @@ module.exports = {
   poolSEST,
   poolSouthSummit,
   poolMulheres,
+  poolMissoes,
   getPool,
   testConnection,
   // Mantém retrocompatibilidade
